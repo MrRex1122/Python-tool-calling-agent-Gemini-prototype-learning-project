@@ -1,0 +1,76 @@
+2026-01-30 16:36:03,018 INFO agent: LLM request: model=gemini-2.5-flash prompt=What is the weather like in Boston right now?
+2026-01-30 16:36:03,020 DEBUG httpcore.connection: connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2026-01-30 16:36:03,282 DEBUG httpcore.connection: connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x0000015C1E484830>
+2026-01-30 16:36:03,282 DEBUG httpcore.connection: start_tls.started ssl_context=<ssl.SSLContext object at 0x0000015C1E3D45F0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2026-01-30 16:36:03,545 DEBUG httpcore.connection: start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x0000015C1E48C410>
+2026-01-30 16:36:03,546 DEBUG httpcore.http11: send_request_headers.started request=<Request [b'POST']>
+2026-01-30 16:36:03,546 DEBUG httpcore.http11: send_request_headers.complete
+2026-01-30 16:36:03,547 DEBUG httpcore.http11: send_request_body.started request=<Request [b'POST']>
+2026-01-30 16:36:03,547 DEBUG httpcore.http11: send_request_body.complete
+2026-01-30 16:36:03,547 DEBUG httpcore.http11: receive_response_headers.started request=<Request [b'POST']>
+2026-01-30 16:36:04,605 DEBUG httpcore.http11: receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Fri, 30 Jan 2026 08:36:04 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=806'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2026-01-30 16:36:04,606 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-30 16:36:04,607 DEBUG httpcore.http11: receive_response_body.started request=<Request [b'POST']>
+2026-01-30 16:36:04,608 DEBUG httpcore.http11: receive_response_body.complete
+2026-01-30 16:36:04,608 DEBUG httpcore.http11: response_closed.started
+2026-01-30 16:36:04,608 DEBUG httpcore.http11: response_closed.complete
+2026-01-30 16:36:04,610 INFO agent: LLM response: 1 tool call(s)
+2026-01-30 16:36:04,610 INFO agent: Tool call: name=get_current_weather args={'location': 'Boston'}
+2026-01-30 16:36:04,610 INFO agent: WeatherAPI request: url=https://api.weatherapi.com/v1/current.json params={'q': 'Boston', 'aqi': 'no'}
+2026-01-30 16:36:04,612 DEBUG urllib3.connectionpool: Starting new HTTPS connection (1): api.weatherapi.com:443
+2026-01-30 16:36:05,242 DEBUG urllib3.connectionpool: https://api.weatherapi.com:443 "GET /v1/current.json?key=832c0a59194f477f84c82733263001&q=Boston&aqi=no HTTP/1.1" 200 None
+2026-01-30 16:36:05,243 INFO agent: WeatherAPI response: status=200
+2026-01-30 16:36:05,245 INFO agent: Tool response: name=get_current_weather keys=['result']
+2026-01-30 16:36:05,245 INFO agent: LLM request: model=gemini-2.5-flash prompt=What is the weather like in Boston right now?
+2026-01-30 16:36:05,247 DEBUG httpcore.http11: send_request_headers.started request=<Request [b'POST']>
+2026-01-30 16:36:05,247 DEBUG httpcore.http11: send_request_headers.complete
+2026-01-30 16:36:05,247 DEBUG httpcore.http11: send_request_body.started request=<Request [b'POST']>
+2026-01-30 16:36:05,248 DEBUG httpcore.http11: send_request_body.complete
+2026-01-30 16:36:05,248 DEBUG httpcore.http11: receive_response_headers.started request=<Request [b'POST']>
+2026-01-30 16:36:06,358 DEBUG httpcore.http11: receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Fri, 30 Jan 2026 08:36:06 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=858'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2026-01-30 16:36:06,359 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-30 16:36:06,359 DEBUG httpcore.http11: receive_response_body.started request=<Request [b'POST']>
+2026-01-30 16:36:06,359 DEBUG httpcore.http11: receive_response_body.complete
+2026-01-30 16:36:06,359 DEBUG httpcore.http11: response_closed.started
+2026-01-30 16:36:06,359 DEBUG httpcore.http11: response_closed.complete
+2026-01-30 16:36:06,360 INFO agent: LLM response: no tool calls
+2026-01-30 16:36:06,360 DEBUG httpcore.connection: close.started
+2026-01-30 16:36:06,361 DEBUG httpcore.connection: close.complete
+2026-02-02 13:56:03,069 INFO agent: LLM request: model=gemini-2.5-flash prompt=What is the weather like in Bali  right now?
+2026-02-02 13:56:03,108 DEBUG httpcore.connection: connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2026-02-02 13:56:03,161 DEBUG httpcore.connection: connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x0000017C9DD78830>
+2026-02-02 13:56:03,161 DEBUG httpcore.connection: start_tls.started ssl_context=<ssl.SSLContext object at 0x0000017C9DCC45F0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2026-02-02 13:56:03,216 DEBUG httpcore.connection: start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x0000017C9DD7C410>
+2026-02-02 13:56:03,217 DEBUG httpcore.http11: send_request_headers.started request=<Request [b'POST']>
+2026-02-02 13:56:03,217 DEBUG httpcore.http11: send_request_headers.complete
+2026-02-02 13:56:03,217 DEBUG httpcore.http11: send_request_body.started request=<Request [b'POST']>
+2026-02-02 13:56:03,218 DEBUG httpcore.http11: send_request_body.complete
+2026-02-02 13:56:03,218 DEBUG httpcore.http11: receive_response_headers.started request=<Request [b'POST']>
+2026-02-02 13:56:04,608 DEBUG httpcore.http11: receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Mon, 02 Feb 2026 05:56:04 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=1355'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2026-02-02 13:56:04,609 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-02 13:56:04,646 DEBUG httpcore.http11: receive_response_body.started request=<Request [b'POST']>
+2026-02-02 13:56:04,648 DEBUG httpcore.http11: receive_response_body.complete
+2026-02-02 13:56:04,649 DEBUG httpcore.http11: response_closed.started
+2026-02-02 13:56:04,649 DEBUG httpcore.http11: response_closed.complete
+2026-02-02 13:56:04,652 INFO agent: LLM response: 1 tool call(s)
+2026-02-02 13:56:04,653 INFO agent: Tool call: name=get_current_weather args={'location': 'Bali'}
+2026-02-02 13:56:04,653 INFO agent: WeatherAPI request: url=https://api.weatherapi.com/v1/current.json params={'q': 'Bali', 'aqi': 'no'}
+2026-02-02 13:56:04,656 DEBUG urllib3.connectionpool: Starting new HTTPS connection (1): api.weatherapi.com:443
+2026-02-02 13:56:05,390 DEBUG urllib3.connectionpool: https://api.weatherapi.com:443 "GET /v1/current.json?key=832c0a59194f477f84c82733263001&q=Bali&aqi=no HTTP/1.1" 200 None
+2026-02-02 13:56:05,391 INFO agent: WeatherAPI response: status=200
+2026-02-02 13:56:05,396 INFO agent: Tool response: name=get_current_weather keys=['result']
+2026-02-02 13:56:05,397 INFO agent: LLM request: model=gemini-2.5-flash prompt=What is the weather like in Bali  right now?
+2026-02-02 13:56:05,404 DEBUG httpcore.http11: send_request_headers.started request=<Request [b'POST']>
+2026-02-02 13:56:05,405 DEBUG httpcore.http11: send_request_headers.complete
+2026-02-02 13:56:05,406 DEBUG httpcore.http11: send_request_body.started request=<Request [b'POST']>
+2026-02-02 13:56:05,406 DEBUG httpcore.http11: send_request_body.complete
+2026-02-02 13:56:05,406 DEBUG httpcore.http11: receive_response_headers.started request=<Request [b'POST']>
+2026-02-02 13:56:07,601 DEBUG httpcore.http11: receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Mon, 02 Feb 2026 05:56:07 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=2151'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2026-02-02 13:56:07,602 INFO httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-02 13:56:07,602 DEBUG httpcore.http11: receive_response_body.started request=<Request [b'POST']>
+2026-02-02 13:56:07,604 DEBUG httpcore.http11: receive_response_body.complete
+2026-02-02 13:56:07,604 DEBUG httpcore.http11: response_closed.started
+2026-02-02 13:56:07,605 DEBUG httpcore.http11: response_closed.complete
+2026-02-02 13:56:07,608 INFO agent: LLM response: no tool calls
+2026-02-02 13:56:07,608 DEBUG httpcore.connection: close.started
+2026-02-02 13:56:07,609 DEBUG httpcore.connection: close.complete
