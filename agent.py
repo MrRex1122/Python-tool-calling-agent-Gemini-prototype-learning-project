@@ -6,25 +6,53 @@ from typing import Any
 from google import genai
 from google.genai import types
 
+from memory import MemoryStore
 from tools.registry import ToolRegistry
 
 
 class GeminiToolAgent:
     """Агент, который делает цикл: LLM -> tool call -> tool result -> LLM."""
 
-    def __init__(self, model: str, tool_registry: ToolRegistry, max_turns: int = 5) -> None:
+    def __init__(
+        self,
+        model: str,
+        tool_registry: ToolRegistry,
+        system_prompt: str | None = None,
+        memory_store: MemoryStore | None = None,
+        max_turns: int = 5,
+    ) -> None:
         self._client = genai.Client()
         self._model = model
         self._tool_registry = tool_registry
+        self._system_prompt = system_prompt
+        self._memory_store = memory_store
         self._max_turns = max_turns
         self._logger = logging.getLogger("agent")
 
     def run(self, prompt: str) -> str:
         # Передаем модели описание всех инструментов.
         config = types.GenerateContentConfig(tools=self._tool_registry.build_tools())
-        contents: list[types.Content] = [
-            types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
-        ]
+        contents: list[types.Content] = []
+        if self._system_prompt:
+            contents.append(
+                types.Content(
+                    role="system",
+                    parts=[types.Part.from_text(text=self._system_prompt)],
+                )
+            )
+        memory_context = self._memory_store.format_for_prompt() if self._memory_store else ""
+        if memory_context:
+            contents.append(
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(
+                            text="Previous conversation context:\n" + memory_context
+                        )
+                    ],
+                )
+            )
+        contents.append(types.Content(role="user", parts=[types.Part.from_text(text=prompt)]))
 
         for _ in range(self._max_turns):
             self._logger.info("LLM request: model=%s prompt=%s", self._model, prompt)
@@ -37,7 +65,10 @@ class GeminiToolAgent:
             # Если function_calls пустой — модель уже дала финальный ответ.
             if not response.function_calls:
                 self._logger.info("LLM response: no tool calls")
-                return response.text or ""
+                final_response = response.text or ""
+                if self._memory_store:
+                    self._memory_store.add_interaction(prompt, final_response)
+                return final_response
 
             self._logger.info("LLM response: %s tool call(s)", len(response.function_calls))
             function_call_content = response.candidates[0].content
@@ -59,7 +90,10 @@ class GeminiToolAgent:
             contents.append(function_call_content)
             contents.append(types.Content(role="tool", parts=function_response_parts))
 
-        return "Stopped after too many tool-call turns."
+        final_response = "Stopped after too many tool-call turns."
+        if self._memory_store:
+            self._memory_store.add_interaction(prompt, final_response)
+        return final_response
 
     @staticmethod
     def _get_call_name(call: Any) -> str | None:

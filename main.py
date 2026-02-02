@@ -3,6 +3,9 @@ import sys
 
 from agent import GeminiToolAgent
 from config import AppConfig
+from mailbox import MailboxStore
+from memory import MemoryStore
+from multi_agent import MultiAgentCoordinator
 from tools import ForecastTool, ToolRegistry, WeatherTool
 
 
@@ -24,18 +27,36 @@ def main() -> None:
         ]
     )
     # Создаем агента: модель + реестр инструментов + лимит циклов tool-calling.
-    agent = GeminiToolAgent(
-        model=config.model,
-        tool_registry=tool_registry,
-        max_turns=config.max_turns,
+    memory_store = MemoryStore(
+        path=config.memory_file,
+        max_entries=config.memory_max_entries,
     )
+    if config.agent_mode == "multi":
+        mailbox = MailboxStore(path=config.mailbox_file)
+        planner_registry = ToolRegistry([])
+        coordinator = MultiAgentCoordinator(
+            model=config.model,
+            planner_registry=planner_registry,
+            executor_registry=tool_registry,
+            mailbox=mailbox,
+            max_turns=config.max_turns,
+        )
+        runner = coordinator.run
+    else:
+        agent = GeminiToolAgent(
+            model=config.model,
+            tool_registry=tool_registry,
+            memory_store=memory_store,
+            max_turns=config.max_turns,
+        )
+        runner = agent.run
 
     # Берем запрос из аргументов командной строки или используем дефолтный.
     if len(sys.argv) > 1:
         prompt = " ".join(sys.argv[1:])
     else:
         prompt = "What is the weather like in Boston right now?"
-    print(agent.run(prompt))
+    print(runner(prompt))
 
 
 if __name__ == "__main__":
