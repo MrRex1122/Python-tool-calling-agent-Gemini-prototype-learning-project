@@ -12,6 +12,8 @@ class AppConfig:
     weatherapi_key: str
     log_level: str
     log_file: str
+    memory_file: str
+    memory_max_entries: int
     max_turns: int = 5
 
     @classmethod
@@ -23,4 +25,6 @@ class AppConfig:
             weatherapi_key=os.getenv("WEATHERAPI_KEY", ""),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
             log_file=os.getenv("LOG_FILE", "agent.log"),
+            memory_file=os.getenv("MEMORY_FILE", "memory.json"),
+            memory_max_entries=int(os.getenv("MEMORY_MAX_ENTRIES", "10")),
         )
