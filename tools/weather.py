@@ -1,4 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
+
+"""Weather tools backed by WeatherAPI.
+
+Includes:
+- WeatherTool: current weather
+- ForecastTool: forecast up to 3 days
+"""
 
 import logging
 from typing import Any
@@ -8,7 +15,11 @@ from google.genai import types
 
 
 class WeatherTool:
-    """Инструмент текущей погоды (current weather)."""
+    """Current weather tool.
+
+    Expected model call example:
+        {"location": "Tokyo"}
+    """
 
     name = "get_current_weather"
 
@@ -18,7 +29,7 @@ class WeatherTool:
         self._logger = logging.getLogger("agent.tools.weather")
 
     def declaration(self) -> types.FunctionDeclaration:
-        # Это описание функции для LLM: как называется и какие аргументы принимает.
+        # Function schema visible to Gemini.
         return types.FunctionDeclaration(
             name=self.name,
             description="Get the current weather for a city.",
@@ -35,12 +46,15 @@ class WeatherTool:
         )
 
     def execute(self, location: str) -> dict[str, Any]:
-        # Вызываем внешнее API и нормализуем ответ в удобный для модели формат.
+        """Fetch and normalize current weather data."""
+        self._logger.info("WeatherTool.execute called: location=%s", location)
         data = self._request("current.json", {"q": location, "aqi": "no"})
+
         location_data = data.get("location", {})
         current = data.get("current", {})
         condition = current.get("condition", {})
-        return {
+
+        normalized = {
             "location": {
                 "name": location_data.get("name"),
                 "region": location_data.get("region"),
@@ -56,17 +70,30 @@ class WeatherTool:
             "wind_kph": current.get("wind_kph"),
             "wind_mph": current.get("wind_mph"),
         }
+        self._logger.debug("WeatherTool normalized payload keys=%s", list(normalized.keys()))
+        return normalized
 
     def _request(self, endpoint: str, params: dict[str, Any]) -> dict[str, Any]:
+        """Issue HTTP request to WeatherAPI.
+
+        Security:
+        - API key is never written to logs.
+        """
         if not self._api_key:
             raise RuntimeError("WEATHERAPI_KEY is not set.")
 
         url = f"{self._base_url}/{endpoint}"
         full_params = {"key": self._api_key, **params}
-        # В лог не пишем ключ API.
+
+        # Never log secrets.
         safe_params = {k: v for k, v in full_params.items() if k != "key"}
         self._logger.info("WeatherAPI request: url=%s params=%s", url, safe_params)
-        response = requests.get(url, params=full_params, timeout=10)
+
+        try:
+            response = requests.get(url, params=full_params, timeout=10)
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Weather API request failed: {exc}") from exc
+
         self._logger.info("WeatherAPI response: status=%s", response.status_code)
 
         if response.status_code != 200:
@@ -77,11 +104,18 @@ class WeatherTool:
                 message = response.text.strip()
             raise RuntimeError(f"Weather API error ({response.status_code}): {message or 'Unknown error'}")
 
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise RuntimeError("Weather API returned non-JSON response") from exc
 
 
 class ForecastTool(WeatherTool):
-    """Инструмент прогноза погоды на 1-3 дня."""
+    """Forecast tool for 1-3 days.
+
+    Expected model call example:
+        {"location": "Tokyo", "days": 3}
+    """
 
     name = "get_weather_forecast"
 
@@ -108,15 +142,24 @@ class ForecastTool(WeatherTool):
         )
 
     def execute(self, location: str, days: int = 3) -> dict[str, Any]:
-        # Подстраховка: всегда держим days в диапазоне, который поддерживает tool.
-        days = max(1, min(3, int(days)))
-        data = self._request("forecast.json", {"q": location, "days": days, "aqi": "no", "alerts": "no"})
+        """Fetch and normalize forecast data.
+
+        We clamp `days` to 1..3 to keep behavior deterministic,
+        even if model provides out-of-range values.
+        """
+        safe_days = max(1, min(3, int(days)))
+        self._logger.info("ForecastTool.execute called: location=%s days=%s", location, safe_days)
+
+        data = self._request(
+            "forecast.json",
+            {"q": location, "days": safe_days, "aqi": "no", "alerts": "no"},
+        )
+
         location_data = data.get("location", {})
         forecast_days = data.get("forecast", {}).get("forecastday", [])
 
         normalized_days: list[dict[str, Any]] = []
         for forecast_day in forecast_days:
-            # Берем только ключевые поля, чтобы ответ был компактным и понятным.
             day_data = forecast_day.get("day", {})
             condition = day_data.get("condition", {})
             normalized_days.append(
@@ -132,7 +175,7 @@ class ForecastTool(WeatherTool):
                 }
             )
 
-        return {
+        normalized = {
             "location": {
                 "name": location_data.get("name"),
                 "region": location_data.get("region"),
@@ -141,3 +184,5 @@ class ForecastTool(WeatherTool):
             },
             "days": normalized_days,
         }
+        self._logger.debug("ForecastTool normalized %s day entries", len(normalized_days))
+        return normalized

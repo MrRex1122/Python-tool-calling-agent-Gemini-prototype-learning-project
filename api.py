@@ -1,4 +1,14 @@
-from __future__ import annotations
+﻿from __future__ import annotations
+
+"""FastAPI entrypoint for the agent.
+
+Run locally:
+    python -m uvicorn api:app --host 127.0.0.1 --port 8000 --reload
+
+Request example:
+    POST /chat
+    {"prompt": "What is the weather in Tokyo?"}
+"""
 
 import logging
 from threading import Lock
@@ -12,6 +22,7 @@ from core.runtime import build_runner, configure_logging
 
 
 class ChatRequest(BaseModel):
+    # Keep request shape minimal for learning and debugging.
     prompt: str = Field(min_length=1, max_length=4000)
 
 
@@ -27,6 +38,7 @@ class HealthResponse(BaseModel):
 
 
 def create_app() -> FastAPI:
+    # Build runtime once during app startup.
     config = AppConfig.from_env()
     configure_logging(config)
     runner, agent_mode = build_runner(config)
@@ -36,6 +48,8 @@ def create_app() -> FastAPI:
         title="Gemini Tool Agent API",
         version="1.0.0",
     )
+
+    # `app.state` keeps shared runtime objects.
     app.state.runner = runner
     app.state.runner_lock = Lock()
     app.state.agent_mode = agent_mode
@@ -43,6 +57,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
+        # Useful for monitoring and quick smoke checks.
         return HealthResponse(status="ok", mode=app.state.agent_mode, model=app.state.model)
 
     @app.post("/chat", response_model=ChatResponse)
@@ -51,20 +66,26 @@ def create_app() -> FastAPI:
         if not prompt:
             raise HTTPException(status_code=422, detail="Prompt must not be empty.")
 
+        logger.info("/chat request received: prompt_chars=%s mode=%s", len(prompt), app.state.agent_mode)
+
         def _run_agent() -> str:
-            # File-based memory/mailbox stores are mutable, so keep execution serialized.
+            # File-based memory/mailbox stores are mutable; serialize runs.
+            # This prevents race conditions when multiple requests arrive at once.
             with app.state.runner_lock:
                 return app.state.runner(prompt)
 
         try:
+            # Run blocking agent code in threadpool to keep event loop responsive.
             response_text = await run_in_threadpool(_run_agent)
         except Exception as exc:
             logger.exception("Chat request failed")
             raise HTTPException(status_code=500, detail=f"Agent execution failed: {exc}") from exc
 
+        logger.info("/chat request completed: response_chars=%s", len(response_text))
         return ChatResponse(response=response_text, mode=app.state.agent_mode)
 
     return app
 
 
+# ASGI app instance used by uvicorn.
 app = create_app()
