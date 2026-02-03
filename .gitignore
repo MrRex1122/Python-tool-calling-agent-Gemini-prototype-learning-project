@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+logs/
+data/
+*.log
+memory.json
+mailbox.json
+.env

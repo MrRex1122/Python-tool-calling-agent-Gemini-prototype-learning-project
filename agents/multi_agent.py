@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import uuid
 
-from agent import GeminiToolAgent
-from mailbox import MailboxStore
+from agents.agent import GeminiToolAgent
+from stores.mailbox import MailboxStore
 from tools.registry import ToolRegistry
 
 

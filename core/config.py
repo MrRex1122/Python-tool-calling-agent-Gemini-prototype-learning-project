@@ -3,6 +3,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
+
 
 @dataclass(frozen=True)
 class AppConfig:
@@ -26,9 +34,10 @@ class AppConfig:
             weatherapi_base_url=os.getenv("WEATHERAPI_BASE_URL", "https://api.weatherapi.com/v1"),
             weatherapi_key=os.getenv("WEATHERAPI_KEY", ""),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
-            log_file=os.getenv("LOG_FILE", "agent.log"),
-            memory_file=os.getenv("MEMORY_FILE", "memory.json"),
+            log_file=os.getenv("LOG_FILE", "logs/agent.log"),
+            memory_file=os.getenv("MEMORY_FILE", "data/memory.json"),
             memory_max_entries=int(os.getenv("MEMORY_MAX_ENTRIES", "10")),
-            mailbox_file=os.getenv("MAILBOX_FILE", "mailbox.json"),
-            agent_mode=os.getenv("AGENT_MODE", "single").lower(),
+            mailbox_file=os.getenv("MAILBOX_FILE", "data/mailbox.json"),
+            agent_mode=os.getenv("AGENT_MODE", "multi").lower(),
+            max_turns=int(os.getenv("MAX_TURNS", "5")),
         )

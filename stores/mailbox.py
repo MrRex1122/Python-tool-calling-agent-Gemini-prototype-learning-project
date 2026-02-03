@@ -47,6 +47,7 @@ class MailboxStore:
 
     def _save(self) -> None:
         payload = [asdict(message) for message in self._messages]
+        self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def send(self, sender: str, recipient: str, content: dict[str, str], thread_id: str) -> None:

@@ -6,7 +6,7 @@ from typing import Any
 from google import genai
 from google.genai import types
 
-from memory import MemoryStore
+from stores.memory import MemoryStore
 from tools.registry import ToolRegistry
 
 

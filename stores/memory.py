@@ -44,6 +44,7 @@ class MemoryStore:
 
     def _save(self) -> None:
         payload = [{"prompt": entry.prompt, "response": entry.response} for entry in self._entries]
+        self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def add_interaction(self, prompt: str, response: str) -> None:
