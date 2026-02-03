@@ -14,8 +14,6 @@ class AppConfig:
     log_file: str
     memory_file: str
     memory_max_entries: int
-    mailbox_file: str
-    agent_mode: str
     max_turns: int = 5
 
     @classmethod
@@ -29,6 +27,4 @@ class AppConfig:
             log_file=os.getenv("LOG_FILE", "agent.log"),
             memory_file=os.getenv("MEMORY_FILE", "memory.json"),
             memory_max_entries=int(os.getenv("MEMORY_MAX_ENTRIES", "10")),
-            mailbox_file=os.getenv("MAILBOX_FILE", "mailbox.json"),
-            agent_mode=os.getenv("AGENT_MODE", "single").lower(),
         )

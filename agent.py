@@ -17,14 +17,12 @@ class GeminiToolAgent:
         self,
         model: str,
         tool_registry: ToolRegistry,
-        system_prompt: str | None = None,
         memory_store: MemoryStore | None = None,
         max_turns: int = 5,
     ) -> None:
         self._client = genai.Client()
         self._model = model
         self._tool_registry = tool_registry
-        self._system_prompt = system_prompt
         self._memory_store = memory_store
         self._max_turns = max_turns
         self._logger = logging.getLogger("agent")
@@ -33,13 +31,6 @@ class GeminiToolAgent:
         # Передаем модели описание всех инструментов.
         config = types.GenerateContentConfig(tools=self._tool_registry.build_tools())
         contents: list[types.Content] = []
-        if self._system_prompt:
-            contents.append(
-                types.Content(
-                    role="system",
-                    parts=[types.Part.from_text(text=self._system_prompt)],
-                )
-            )
         memory_context = self._memory_store.format_for_prompt() if self._memory_store else ""
         if memory_context:
             contents.append(
