@@ -35,13 +35,32 @@ def main() -> None:
         memory_store=memory_store,
         max_turns=config.max_turns,
     )
+    if config.agent_mode == "multi":
+        mailbox = MailboxStore(path=config.mailbox_file)
+        planner_registry = ToolRegistry([])
+        coordinator = MultiAgentCoordinator(
+            model=config.model,
+            planner_registry=planner_registry,
+            executor_registry=tool_registry,
+            mailbox=mailbox,
+            max_turns=config.max_turns,
+        )
+        runner = coordinator.run
+    else:
+        agent = GeminiToolAgent(
+            model=config.model,
+            tool_registry=tool_registry,
+            memory_store=memory_store,
+            max_turns=config.max_turns,
+        )
+        runner = agent.run
 
     # Берем запрос из аргументов командной строки или используем дефолтный.
     if len(sys.argv) > 1:
         prompt = " ".join(sys.argv[1:])
     else:
         prompt = "What is the weather like in Boston right now?"
-    print(agent.run(prompt))
+    print(runner(prompt))
 
 
 if __name__ == "__main__":
