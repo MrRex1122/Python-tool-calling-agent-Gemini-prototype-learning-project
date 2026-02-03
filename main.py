@@ -3,7 +3,9 @@ import sys
 
 from agent import GeminiToolAgent
 from config import AppConfig
+from mailbox import MailboxStore
 from memory import MemoryStore
+from multi_agent import MultiAgentCoordinator
 from tools import ForecastTool, ToolRegistry, WeatherTool
 
 
@@ -28,12 +30,6 @@ def main() -> None:
     memory_store = MemoryStore(
         path=config.memory_file,
         max_entries=config.memory_max_entries,
-    )
-    agent = GeminiToolAgent(
-        model=config.model,
-        tool_registry=tool_registry,
-        memory_store=memory_store,
-        max_turns=config.max_turns,
     )
     if config.agent_mode == "multi":
         mailbox = MailboxStore(path=config.mailbox_file)

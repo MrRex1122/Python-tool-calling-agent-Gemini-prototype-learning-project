@@ -17,19 +17,25 @@ class GeminiToolAgent:
         self,
         model: str,
         tool_registry: ToolRegistry,
+        system_prompt: str | None = None,
         memory_store: MemoryStore | None = None,
         max_turns: int = 5,
     ) -> None:
         self._client = genai.Client()
         self._model = model
         self._tool_registry = tool_registry
+        self._system_prompt = system_prompt
         self._memory_store = memory_store
         self._max_turns = max_turns
         self._logger = logging.getLogger("agent")
 
     def run(self, prompt: str) -> str:
         # Передаем модели описание всех инструментов.
-        config = types.GenerateContentConfig(tools=self._tool_registry.build_tools())
+        config_kwargs: dict[str, Any] = {"tools": self._tool_registry.build_tools()}
+        if self._system_prompt:
+            # Gemini API принимает system instruction через config, а не через content role.
+            config_kwargs["system_instruction"] = self._system_prompt
+        config = types.GenerateContentConfig(**config_kwargs)
         contents: list[types.Content] = []
         memory_context = self._memory_store.format_for_prompt() if self._memory_store else ""
         if memory_context:
@@ -79,7 +85,8 @@ class GeminiToolAgent:
 
             # Добавляем в историю и сам запрос инструмента, и его ответ.
             contents.append(function_call_content)
-            contents.append(types.Content(role="tool", parts=function_response_parts))
+            # Function responses должны идти как user content с function_response part.
+            contents.append(types.Content(role="user", parts=function_response_parts))
 
         final_response = "Stopped after too many tool-call turns."
         if self._memory_store:
