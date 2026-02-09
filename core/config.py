@@ -90,6 +90,16 @@ class AppConfig:
             max_turns=_read_int_env("MAX_TURNS", 5),
         )
 
+        if not os.getenv("GOOGLE_API_KEY"):
+            LOGGER.warning("GOOGLE_API_KEY is not set. Gemini calls will fail.")
+        if not config.weatherapi_key:
+            LOGGER.warning("WEATHERAPI_KEY is not set. Weather tools will fail.")
+        if config.agent_mode not in {"single", "multi"}:
+            LOGGER.warning(
+                "Unknown AGENT_MODE '%s'. Runtime will fall back to 'multi'.",
+                config.agent_mode,
+            )
+
         # Never log secrets (API keys). Log only safe metadata.
         LOGGER.debug(
             "Config loaded: model=%s mode=%s max_turns=%s log_file=%s memory_file=%s mailbox_file=%s",

@@ -10,6 +10,7 @@ High-level flow:
 """
 
 import logging
+import os
 from typing import Any
 
 from google import genai
@@ -31,13 +32,20 @@ class GeminiToolAgent:
         max_turns: int = 5,
     ) -> None:
         # Gemini client reads credentials from environment (GOOGLE_API_KEY etc).
-        self._client = genai.Client()
+        self._client: genai.Client | None = None
         self._model = model
         self._tool_registry = tool_registry
         self._system_prompt = system_prompt
         self._memory_store = memory_store
         self._max_turns = max(1, max_turns)
         self._logger = logging.getLogger("agent")
+
+    def _get_client(self) -> genai.Client:
+        if self._client is None:
+            if not os.getenv("GOOGLE_API_KEY"):
+                raise RuntimeError("GOOGLE_API_KEY is not set.")
+            self._client = genai.Client()
+        return self._client
 
     def run(self, prompt: str) -> str:
         """Run one prompt through the tool-calling loop and return final text.
@@ -78,7 +86,8 @@ class GeminiToolAgent:
         # Core loop: model -> optional tool calls -> model.
         for turn_number in range(1, self._max_turns + 1):
             self._logger.info("LLM turn %s/%s", turn_number, self._max_turns)
-            response = self._client.models.generate_content(
+            client = self._get_client()
+            response = client.models.generate_content(
                 model=self._model,
                 contents=contents,
                 config=config,

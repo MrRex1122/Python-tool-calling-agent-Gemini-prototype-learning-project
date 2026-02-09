@@ -10,6 +10,7 @@ It supports:
 ```powershell
 cd "D:\Python Gemini Tool\Python-Gemini-Tool-Agent"
 python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 Copy-Item .env.example .env
 ```
 
@@ -21,6 +22,15 @@ Open `.env` and set your keys:
 
 ```powershell
 python main.py "What's the weather forecast for Tokyo?"
+```
+
+## Tasks (Optional)
+
+```powershell
+python tasks.py test
+python tasks.py lint
+python tasks.py run-api
+python tasks.py run-cli -- "What's the weather in Tokyo?"
 ```
 
 ## Run API (FastAPI)
@@ -35,6 +45,37 @@ Check endpoints:
 Invoke-RestMethod http://127.0.0.1:8000/health
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/chat -ContentType "application/json" -Body '{"prompt":"What is the weather in Tokyo?"}'
 ```
+
+## Testing
+
+Unit tests are lightweight and do not call external APIs.
+They inject a fake runner into `create_app()` so tests run fast and deterministically.
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+## Development Tasks
+
+`tasks.py` provides a minimal task runner to keep common commands consistent:
+
+```powershell
+python tasks.py test
+python tasks.py lint
+python tasks.py run-api
+python tasks.py run-cli -- "What's the weather in Tokyo?"
+```
+
+## Runtime Notes
+
+- `create_app()` supports dependency injection for tests or custom wiring:
+  - `create_app(runner=..., agent_mode=..., model=...)`
+  - When not provided, runtime is built from `.env` and logging is configured.
+- Gemini client initialization is lazy. This avoids hard failures on startup
+  when `GOOGLE_API_KEY` is not set (it will fail only when the agent runs).
+- `core/config.py` logs warnings if `GOOGLE_API_KEY` or `WEATHERAPI_KEY` are missing
+  and if `AGENT_MODE` is invalid (fallback to `multi`).
 
 ## Quick API Smoke Test
 

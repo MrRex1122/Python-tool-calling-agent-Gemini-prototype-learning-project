@@ -11,6 +11,7 @@ Request example:
 """
 
 import logging
+from collections.abc import Callable
 from threading import Lock
 
 from fastapi import FastAPI, HTTPException
@@ -37,12 +38,29 @@ class HealthResponse(BaseModel):
     model: str
 
 
-def create_app() -> FastAPI:
-    # Build runtime once during app startup.
-    config = AppConfig.from_env()
-    configure_logging(config)
-    runner, agent_mode = build_runner(config)
+def create_app(
+    runner: Callable[[str], str] | None = None,
+    agent_mode: str | None = None,
+    model: str | None = None,
+) -> FastAPI:
+    """Create FastAPI app.
+
+    Optional runner injection keeps tests fast and independent of external APIs.
+    """
     logger = logging.getLogger("agent.api")
+
+    if runner is None:
+        # Build runtime once during app startup.
+        config = AppConfig.from_env()
+        configure_logging(config)
+        runner, agent_mode = build_runner(config)
+        model = config.model
+    else:
+        # Tests or custom wiring can inject runner + metadata.
+        if agent_mode is None:
+            agent_mode = "custom"
+        if model is None:
+            model = "custom"
 
     app = FastAPI(
         title="Gemini Tool Agent API",
@@ -53,7 +71,7 @@ def create_app() -> FastAPI:
     app.state.runner = runner
     app.state.runner_lock = Lock()
     app.state.agent_mode = agent_mode
-    app.state.model = config.model
+    app.state.model = model
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
