@@ -3,12 +3,13 @@
 """Runtime composition helpers.
 
 This module wires together:
-- tools,
-- stores,
-- agent mode (single / multi),
-- logging.
+1) Tools and their registry.
+2) Stores (memory and mailbox).
+3) Agent mode (single / multi).
+4) Logging.
 
-Keeping this in one place avoids duplicate setup code in `main.py` and `api.py`.
+Keeping this in one place avoids duplicate setup code in `main.py` and `api.py`
+and makes it easy to build custom runners for tests.
 """
 
 import logging
@@ -91,6 +92,7 @@ def build_runner(config: AppConfig) -> tuple[Runner, str]:
 
     if agent_mode == "multi":
         # Multi mode uses mailbox to track planner/executor message exchange.
+        # Planner has no tools; executor has the full tool registry.
         mailbox = MailboxStore(path=config.mailbox_file)
         coordinator = MultiAgentCoordinator(
             model=config.model,

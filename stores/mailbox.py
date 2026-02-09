@@ -3,7 +3,8 @@
 """File-based mailbox for multi-agent message trace.
 
 Every send() appends one message and persists it to disk.
-This makes debugging multi-agent flows very transparent.
+This makes debugging multi-agent flows very transparent because
+you can inspect the entire planner/executor conversation.
 """
 
 import json
@@ -23,7 +24,10 @@ class MailboxMessage:
 
 
 class MailboxStore:
-    """Persistent mailbox used by planner/executor/user roles."""
+    """Persistent mailbox used by planner/executor/user roles.
+
+    The mailbox is append-only and stored in JSON for readability.
+    """
 
     def __init__(self, path: str) -> None:
         self._path = Path(path)
@@ -73,6 +77,7 @@ class MailboxStore:
         Example:
             send("planner", "executor", {"plan": "1) ..."}, thread_id)
         """
+        # Timestamps are stored in UTC to keep ordering consistent.
         message = MailboxMessage(
             sender=sender,
             recipient=recipient,

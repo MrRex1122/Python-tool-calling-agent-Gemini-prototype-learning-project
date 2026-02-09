@@ -3,8 +3,8 @@
 """Simple file-based memory store.
 
 Purpose:
-- Keep last N user/assistant exchanges.
-- Provide a compact context block for the next prompt.
+1) Keep last N user/assistant exchanges.
+2) Provide a compact context block for the next prompt.
 
 Example stored item:
     {"prompt": "weather in Tokyo", "response": "It is 8C and cloudy."}
@@ -23,7 +23,11 @@ class MemoryEntry:
 
 
 class MemoryStore:
-    """Persistent short-term chat memory."""
+    """Persistent short-term chat memory.
+
+    This store is intentionally simple and file-based to keep the project
+    easy to understand and debug.
+    """
 
     def __init__(self, path: str, max_entries: int = 10) -> None:
         self._path = Path(path)

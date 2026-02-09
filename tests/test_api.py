@@ -1,4 +1,9 @@
-﻿from fastapi.testclient import TestClient
+﻿"""API smoke tests.
+
+These tests inject a fake runner so no external API calls are made.
+"""
+
+from fastapi.testclient import TestClient
 
 from api import create_app
 

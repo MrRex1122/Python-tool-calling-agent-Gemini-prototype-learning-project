@@ -2,6 +2,10 @@
 
 """FastAPI entrypoint for the agent.
 
+This file exposes two HTTP endpoints:
+1) GET /health -> basic service status and configuration metadata.
+2) POST /chat  -> run the agent once and return its text response.
+
 Run locally:
     python -m uvicorn api:app --host 127.0.0.1 --port 8000 --reload
 
@@ -23,16 +27,24 @@ from core.runtime import build_runner, configure_logging
 
 
 class ChatRequest(BaseModel):
-    # Keep request shape minimal for learning and debugging.
+    """Request payload for /chat.
+
+    The schema is intentionally small to keep testing and debugging simple.
+    """
+
     prompt: str = Field(min_length=1, max_length=4000)
 
 
 class ChatResponse(BaseModel):
+    """Response payload for /chat."""
+
     response: str
     mode: str
 
 
 class HealthResponse(BaseModel):
+    """Response payload for /health."""
+
     status: str
     mode: str
     model: str
@@ -68,7 +80,9 @@ def create_app(
     )
 
     # `app.state` keeps shared runtime objects.
+    # `app.state` keeps shared runtime objects for the life of the server.
     app.state.runner = runner
+    # Lock protects file-backed stores during concurrent requests.
     app.state.runner_lock = Lock()
     app.state.agent_mode = agent_mode
     app.state.model = model

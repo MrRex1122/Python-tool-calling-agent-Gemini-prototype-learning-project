@@ -1,4 +1,9 @@
-﻿import argparse
+﻿"""Small task runner for common project commands.
+
+This keeps usage consistent across machines without requiring Make/Just.
+"""
+
+import argparse
 import subprocess
 import sys
 

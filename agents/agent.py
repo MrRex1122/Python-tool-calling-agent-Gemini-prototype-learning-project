@@ -7,6 +7,8 @@ High-level flow:
 2) If model requests tool calls -> execute tools.
 3) Send tool results back to Gemini.
 4) Repeat until final text answer or max turns reached.
+
+This class owns the LLM loop and is used by both CLI and API runtime paths.
 """
 
 import logging
@@ -21,7 +23,13 @@ from tools.registry import ToolRegistry
 
 
 class GeminiToolAgent:
-    """Agent that orchestrates LLM <-> tools interaction."""
+    """Agent that orchestrates LLM <-> tools interaction.
+
+    The agent is responsible for:
+    - building the Gemini request with tool declarations,
+    - executing tool calls via the ToolRegistry,
+    - looping until a final text response is produced.
+    """
 
     def __init__(
         self,
@@ -32,6 +40,7 @@ class GeminiToolAgent:
         max_turns: int = 5,
     ) -> None:
         # Gemini client reads credentials from environment (GOOGLE_API_KEY etc).
+        # Client is created lazily to make startup/test paths safer.
         self._client: genai.Client | None = None
         self._model = model
         self._tool_registry = tool_registry
@@ -41,6 +50,7 @@ class GeminiToolAgent:
         self._logger = logging.getLogger("agent")
 
     def _get_client(self) -> genai.Client:
+        """Create Gemini client on first use and validate credentials."""
         if self._client is None:
             if not os.getenv("GOOGLE_API_KEY"):
                 raise RuntimeError("GOOGLE_API_KEY is not set.")

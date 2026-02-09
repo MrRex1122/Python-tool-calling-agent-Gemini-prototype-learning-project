@@ -3,9 +3,10 @@
 """Application configuration bootstrap.
 
 Why this module exists:
-- Keep all env variables in one place.
-- Provide safe defaults for local development.
-- Avoid hardcoding keys or file paths in business logic.
+1) Keep all env variables in one place.
+2) Provide safe defaults for local development.
+3) Avoid hardcoding keys or file paths in business logic.
+4) Emit helpful warnings when critical settings are missing.
 
 Example .env:
     GOOGLE_API_KEY=your_google_api_key
@@ -49,7 +50,10 @@ def _read_int_env(name: str, default: int) -> int:
 
 @dataclass(frozen=True)
 class AppConfig:
-    """Immutable runtime configuration used by CLI and API entrypoints."""
+    """Immutable runtime configuration used by CLI and API entrypoints.
+
+    The fields mirror the .env variables to keep all configuration explicit.
+    """
 
     # LLM and external API settings.
     model: str
@@ -76,6 +80,8 @@ class AppConfig:
         Security note:
         - Keep secrets in .env / secret manager.
         - Do not commit .env.
+
+        This method also logs warnings for missing keys to reduce setup confusion.
         """
         config = cls(
             model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),

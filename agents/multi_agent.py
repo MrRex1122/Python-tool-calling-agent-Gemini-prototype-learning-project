@@ -3,10 +3,11 @@
 """Two-agent coordination flow.
 
 Roles:
-- planner: turns user request into a short plan.
-- executor: follows plan and uses tools.
+1) Planner: turns user request into a short plan.
+2) Executor: follows plan and uses tools.
 
 Mailbox captures every step so you can inspect agent-to-agent dialog.
+This is useful for debugging and teaching multi-agent behavior.
 """
 
 import logging
@@ -18,7 +19,13 @@ from tools.registry import ToolRegistry
 
 
 class MultiAgentCoordinator:
-    """Coordinator for planner -> executor -> planner cycle."""
+    """Coordinator for planner -> executor -> planner cycle.
+
+    The coordinator:
+    - creates a planner agent with no tools,
+    - creates an executor agent with tools,
+    - stores every message exchange in the mailbox.
+    """
 
     def __init__(
         self,

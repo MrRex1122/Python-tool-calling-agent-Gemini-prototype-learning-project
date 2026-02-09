@@ -3,9 +3,11 @@
 """Tool registry used by the agent.
 
 Responsibilities:
-- expose tool declarations to Gemini,
-- route function calls by tool name,
-- return uniform result/error payloads.
+1) Expose tool declarations to Gemini.
+2) Route function calls by tool name.
+3) Return uniform result/error payloads.
+
+This keeps the agent loop simple and predictable.
 """
 
 import logging

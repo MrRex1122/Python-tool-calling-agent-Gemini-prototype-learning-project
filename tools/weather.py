@@ -3,8 +3,12 @@
 """Weather tools backed by WeatherAPI.
 
 Includes:
-- WeatherTool: current weather
-- ForecastTool: forecast up to 3 days
+1) WeatherTool: current weather.
+2) ForecastTool: forecast up to 3 days.
+
+The tools:
+- declare JSON schemas so Gemini knows how to call them,
+- normalize WeatherAPI responses into compact dictionaries.
 """
 
 import logging
@@ -54,6 +58,7 @@ class WeatherTool:
         current = data.get("current", {})
         condition = current.get("condition", {})
 
+        # Normalize raw response into a predictable shape for the model.
         normalized = {
             "location": {
                 "name": location_data.get("name"),
@@ -175,6 +180,7 @@ class ForecastTool(WeatherTool):
                 }
             )
 
+        # Normalize forecast into a compact, stable payload.
         normalized = {
             "location": {
                 "name": location_data.get("name"),
