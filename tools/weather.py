@@ -7,8 +7,9 @@ Includes:
 2) ForecastTool: forecast up to 3 days.
 
 The tools:
-- declare JSON schemas so Gemini knows how to call them,
-- normalize WeatherAPI responses into compact dictionaries.
+- declare JSON input schemas so Gemini knows how to call them,
+- validate and normalize outputs with Pydantic models,
+- expose output schemas for documentation and debugging.
 """
 
 import logging
@@ -16,6 +17,50 @@ from typing import Any
 
 import requests
 from google.genai import types
+from pydantic import BaseModel
+
+
+class LocationInfo(BaseModel):
+    """Shared location payload used by weather tool responses."""
+
+    name: str | None = None
+    region: str | None = None
+    country: str | None = None
+    localtime: str | None = None
+
+
+class CurrentWeatherResponse(BaseModel):
+    """Normalized output schema for current weather."""
+
+    location: LocationInfo
+    temperature_c: float | None = None
+    temperature_f: float | None = None
+    feels_like_c: float | None = None
+    feels_like_f: float | None = None
+    humidity: int | None = None
+    condition: str | None = None
+    wind_kph: float | None = None
+    wind_mph: float | None = None
+
+
+class ForecastDay(BaseModel):
+    """Normalized output schema for one forecast day."""
+
+    date: str | None = None
+    condition: str | None = None
+    max_temp_c: float | None = None
+    min_temp_c: float | None = None
+    max_temp_f: float | None = None
+    min_temp_f: float | None = None
+    avg_humidity: float | None = None
+    chance_of_rain: int | None = None
+
+
+class ForecastResponse(BaseModel):
+    """Normalized output schema for multi-day forecast."""
+
+    location: LocationInfo
+    days: list[ForecastDay]
 
 
 class WeatherTool:
@@ -49,6 +94,10 @@ class WeatherTool:
             },
         )
 
+    def output_schema(self) -> dict[str, Any]:
+        """Return JSON schema for the tool output."""
+        return CurrentWeatherResponse.model_json_schema()
+
     def execute(self, location: str) -> dict[str, Any]:
         """Fetch and normalize current weather data."""
         self._logger.info("WeatherTool.execute called: location=%s", location)
@@ -75,8 +124,11 @@ class WeatherTool:
             "wind_kph": current.get("wind_kph"),
             "wind_mph": current.get("wind_mph"),
         }
+
+        # Validate and return a clean dict payload.
+        response = CurrentWeatherResponse(**normalized)
         self._logger.debug("WeatherTool normalized payload keys=%s", list(normalized.keys()))
-        return normalized
+        return response.model_dump()
 
     def _request(self, endpoint: str, params: dict[str, Any]) -> dict[str, Any]:
         """Issue HTTP request to WeatherAPI.
@@ -146,6 +198,10 @@ class ForecastTool(WeatherTool):
             },
         )
 
+    def output_schema(self) -> dict[str, Any]:
+        """Return JSON schema for the tool output."""
+        return ForecastResponse.model_json_schema()
+
     def execute(self, location: str, days: int = 3) -> dict[str, Any]:
         """Fetch and normalize forecast data.
 
@@ -190,5 +246,7 @@ class ForecastTool(WeatherTool):
             },
             "days": normalized_days,
         }
+
+        response = ForecastResponse(**normalized)
         self._logger.debug("ForecastTool normalized %s day entries", len(normalized_days))
-        return normalized
+        return response.model_dump()

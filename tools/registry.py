@@ -6,6 +6,7 @@ Responsibilities:
 1) Expose tool declarations to Gemini.
 2) Route function calls by tool name.
 3) Return uniform result/error payloads.
+4) Provide input/output schemas for documentation.
 
 This keeps the agent loop simple and predictable.
 """
@@ -22,6 +23,10 @@ class ToolProtocol(Protocol):
     name: str
 
     def declaration(self) -> types.FunctionDeclaration:
+        ...
+
+    def output_schema(self) -> dict[str, Any]:
+        """Return JSON schema describing the tool output."""
         ...
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
@@ -43,6 +48,26 @@ class ToolRegistry:
         declarations = [tool.declaration() for tool in self._tools.values()]
         self._logger.debug("Built %s tool declarations", len(declarations))
         return [types.Tool(function_declarations=declarations)]
+
+    def describe(self) -> dict[str, dict[str, Any]]:
+        """Return tool input/output schemas for documentation or debugging.
+
+        Output example:
+            {
+                "get_current_weather": {
+                    "input_schema": {...},
+                    "output_schema": {...},
+                }
+            }
+        """
+        description: dict[str, dict[str, Any]] = {}
+        for name, tool in self._tools.items():
+            declaration = tool.declaration()
+            description[name] = {
+                "input_schema": declaration.parameters_json_schema or {},
+                "output_schema": tool.output_schema(),
+            }
+        return description
 
     def execute(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
         """Execute one tool call and normalize output shape.

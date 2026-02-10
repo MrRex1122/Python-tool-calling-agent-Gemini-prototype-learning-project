@@ -5,7 +5,7 @@
 This module wires together:
 1) Tools and their registry.
 2) Stores (memory and mailbox).
-3) Agent mode (single / multi).
+3) Agent mode (single / multi / router).
 4) Logging.
 
 Keeping this in one place avoids duplicate setup code in `main.py` and `api.py`
@@ -18,6 +18,7 @@ from pathlib import Path
 
 from agents.agent import GeminiToolAgent
 from agents.multi_agent import MultiAgentCoordinator
+from agents.router import RouterAgent, RouterCoordinator
 from core.config import AppConfig
 from stores.mailbox import MailboxStore
 from stores.memory import MemoryStore
@@ -54,7 +55,7 @@ def configure_logging(config: AppConfig) -> None:
 
 def _resolve_agent_mode(raw_mode: str) -> str:
     """Normalize mode and keep behavior predictable for invalid values."""
-    return raw_mode if raw_mode in {"single", "multi"} else "multi"
+    return raw_mode if raw_mode in {"single", "multi", "router"} else "multi"
 
 
 def build_runner(config: AppConfig) -> tuple[Runner, str]:
@@ -102,6 +103,37 @@ def build_runner(config: AppConfig) -> tuple[Runner, str]:
             max_turns=config.max_turns,
         )
         logger.info("Runner created: multi-agent coordinator")
+        return coordinator.run, agent_mode
+
+    if agent_mode == "router":
+        # Router mode decides per-request whether to run single or multi flow.
+        # Router has no tools; it only returns a route decision.
+        router = RouterAgent(model=config.model, max_turns=1)
+
+        # Direct path uses the same tool registry and memory as single mode.
+        direct_agent = GeminiToolAgent(
+            model=config.model,
+            tool_registry=tool_registry,
+            memory_store=memory_store,
+            max_turns=config.max_turns,
+        )
+
+        # Plan path uses the multi-agent coordinator with a mailbox trace.
+        mailbox = MailboxStore(path=config.mailbox_file)
+        plan_agent = MultiAgentCoordinator(
+            model=config.model,
+            planner_registry=ToolRegistry([]),
+            executor_registry=tool_registry,
+            mailbox=mailbox,
+            max_turns=config.max_turns,
+        )
+
+        coordinator = RouterCoordinator(
+            router=router,
+            direct_agent=direct_agent,
+            plan_agent=plan_agent,
+        )
+        logger.info("Runner created: router coordinator")
         return coordinator.run, agent_mode
 
     # Single mode: one agent handles prompt + tool calls directly.

@@ -12,6 +12,7 @@ Example .env:
     GOOGLE_API_KEY=your_google_api_key
     WEATHERAPI_KEY=your_weatherapi_key
     AGENT_MODE=multi
+    AGENT_MODE=router
 """
 
 import logging
@@ -100,7 +101,7 @@ class AppConfig:
             LOGGER.warning("GOOGLE_API_KEY is not set. Gemini calls will fail.")
         if not config.weatherapi_key:
             LOGGER.warning("WEATHERAPI_KEY is not set. Weather tools will fail.")
-        if config.agent_mode not in {"single", "multi"}:
+        if config.agent_mode not in {"single", "multi", "router"}:
             LOGGER.warning(
                 "Unknown AGENT_MODE '%s'. Runtime will fall back to 'multi'.",
                 config.agent_mode,
