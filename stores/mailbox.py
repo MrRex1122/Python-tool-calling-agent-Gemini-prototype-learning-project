@@ -1,14 +1,19 @@
 ﻿from __future__ import annotations
 
-"""File-based mailbox for multi-agent message trace.
+"""SQLite-backed mailbox for multi-agent message trace.
 
 Every send() appends one message and persists it to disk.
-This makes debugging multi-agent flows very transparent because
-you can inspect the entire planner/executor conversation.
+This makes debugging multi-agent flows transparent because you can
+query the full planner/executor conversation via SQL or a helper script.
+
+Notes:
+- This store uses a SQLite file. If you previously used JSON files,
+  delete or rename them before running to avoid "not a database" errors.
 """
 
 import json
 import logging
+import sqlite3
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,52 +29,39 @@ class MailboxMessage:
 
 
 class MailboxStore:
-    """Persistent mailbox used by planner/executor/user roles.
-
-    The mailbox is append-only and stored in JSON for readability.
-    """
+    """Persistent mailbox used by planner/executor/user roles."""
 
     def __init__(self, path: str) -> None:
         self._path = Path(path)
         self._logger = logging.getLogger("agent.mailbox")
-        self._messages = self._load()
-        self._logger.info("MailboxStore initialized: path=%s messages=%s", self._path, len(self._messages))
+        self._init_db()
+        self._logger.info("MailboxStore initialized: path=%s", self._path)
 
-    def _load(self) -> list[MailboxMessage]:
-        """Load mailbox messages from disk. Invalid rows are ignored."""
-        if not self._path.exists():
-            self._logger.debug("Mailbox file does not exist yet: %s", self._path)
-            return []
-
-        try:
-            data = json.loads(self._path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            self._logger.warning("Failed to read mailbox file %s: %s", self._path, exc)
-            return []
-
-        if not isinstance(data, list):
-            self._logger.warning("Mailbox file has invalid format (expected list): %s", self._path)
-            return []
-
-        messages: list[MailboxMessage] = []
-        for item in data:
-            if not isinstance(item, dict):
-                continue
-            try:
-                messages.append(MailboxMessage(**item))
-            except TypeError:
-                # Skip malformed message rows instead of failing whole load.
-                continue
-
-        self._logger.debug("Loaded %s mailbox messages from %s", len(messages), self._path)
-        return messages
-
-    def _save(self) -> None:
-        """Persist full mailbox to disk in readable JSON format."""
-        payload = [asdict(message) for message in self._messages]
+    def _connect(self) -> sqlite3.Connection:
+        """Open a new SQLite connection for a single operation."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        self._logger.debug("Saved %s mailbox messages to %s", len(self._messages), self._path)
+        conn = sqlite3.connect(self._path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_db(self) -> None:
+        """Ensure the mailbox table exists."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS mailbox_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sender TEXT NOT NULL,
+                    recipient TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    thread_id TEXT NOT NULL,
+                    timestamp TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_mailbox_thread ON mailbox_messages(thread_id)"
+            )
 
     def send(self, sender: str, recipient: str, content: dict[str, str], thread_id: str) -> None:
         """Append one message to mailbox.
@@ -85,8 +77,17 @@ class MailboxStore:
             thread_id=thread_id,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
-        self._messages.append(message)
-        self._save()
+        payload = json.dumps(message.content, ensure_ascii=False)
+
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO mailbox_messages (sender, recipient, content, thread_id, timestamp)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (message.sender, message.recipient, payload, message.thread_id, message.timestamp),
+            )
+
         self._logger.info(
             "Mailbox message saved: thread=%s sender=%s recipient=%s content_keys=%s",
             thread_id,
@@ -97,6 +98,32 @@ class MailboxStore:
 
     def thread_messages(self, thread_id: str) -> list[MailboxMessage]:
         """Return all messages for one conversation thread."""
-        messages = [message for message in self._messages if message.thread_id == thread_id]
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT sender, recipient, content, thread_id, timestamp
+                FROM mailbox_messages
+                WHERE thread_id = ?
+                ORDER BY id ASC
+                """,
+                (thread_id,),
+            ).fetchall()
+
+        messages: list[MailboxMessage] = []
+        for row in rows:
+            try:
+                content = json.loads(row["content"])
+            except json.JSONDecodeError:
+                content = {"raw": row["content"]}
+            messages.append(
+                MailboxMessage(
+                    sender=row["sender"],
+                    recipient=row["recipient"],
+                    content=content,
+                    thread_id=row["thread_id"],
+                    timestamp=row["timestamp"],
+                )
+            )
+
         self._logger.debug("Mailbox thread lookup: thread=%s messages=%s", thread_id, len(messages))
         return messages

@@ -1,18 +1,20 @@
 ﻿from __future__ import annotations
 
-"""Simple file-based memory store.
+"""SQLite-backed memory store.
 
 Purpose:
 1) Keep last N user/assistant exchanges.
 2) Provide a compact context block for the next prompt.
 
-Example stored item:
-    {"prompt": "weather in Tokyo", "response": "It is 8C and cloudy."}
+Notes:
+- This store uses a SQLite file. If you previously used JSON files,
+  delete or rename them before running to avoid "not a database" errors.
 """
 
-import json
 import logging
+import sqlite3
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -20,70 +22,68 @@ from pathlib import Path
 class MemoryEntry:
     prompt: str
     response: str
+    created_at: str
 
 
 class MemoryStore:
-    """Persistent short-term chat memory.
+    """Persistent short-term chat memory using SQLite.
 
-    This store is intentionally simple and file-based to keep the project
-    easy to understand and debug.
+    The store keeps only the last N entries to avoid unbounded growth.
     """
 
     def __init__(self, path: str, max_entries: int = 10) -> None:
         self._path = Path(path)
         self._max_entries = max(1, max_entries)
         self._logger = logging.getLogger("agent.memory")
-        self._entries = self._load()
+        self._init_db()
         self._logger.info(
-            "MemoryStore initialized: path=%s entries=%s max_entries=%s",
+            "MemoryStore initialized: path=%s max_entries=%s",
             self._path,
-            len(self._entries),
             self._max_entries,
         )
 
-    def _load(self) -> list[MemoryEntry]:
-        """Load entries from disk. Invalid rows are skipped."""
-        if not self._path.exists():
-            self._logger.debug("Memory file does not exist yet: %s", self._path)
-            return []
-
-        try:
-            data = json.loads(self._path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            self._logger.warning("Failed to read memory file %s: %s", self._path, exc)
-            return []
-
-        if not isinstance(data, list):
-            self._logger.warning("Memory file has invalid format (expected list): %s", self._path)
-            return []
-
-        entries: list[MemoryEntry] = []
-        for item in data:
-            if not isinstance(item, dict):
-                continue
-            prompt = item.get("prompt")
-            response = item.get("response")
-            if isinstance(prompt, str) and isinstance(response, str):
-                entries.append(MemoryEntry(prompt=prompt, response=response))
-
-        self._logger.debug("Loaded %s valid memory entries from %s", len(entries), self._path)
-        return entries
-
-    def _save(self) -> None:
-        """Write memory entries to disk with pretty JSON for easy inspection."""
-        payload = [{"prompt": entry.prompt, "response": entry.response} for entry in self._entries]
+    def _connect(self) -> sqlite3.Connection:
+        """Open a new SQLite connection for a single operation."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        self._logger.debug("Saved %s memory entries to %s", len(self._entries), self._path)
+        conn = sqlite3.connect(self._path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_db(self) -> None:
+        """Ensure the memory table exists."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memory_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt TEXT NOT NULL,
+                    response TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_memory_created ON memory_entries(created_at)"
+            )
 
     def add_interaction(self, prompt: str, response: str) -> None:
         """Append a new interaction and keep only last N entries."""
-        self._entries.append(MemoryEntry(prompt=prompt, response=response))
-        if len(self._entries) > self._max_entries:
-            dropped = len(self._entries) - self._max_entries
-            self._entries = self._entries[-self._max_entries :]
-            self._logger.debug("Memory trimmed by %s old entries", dropped)
-        self._save()
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO memory_entries (prompt, response, created_at) VALUES (?, ?, ?)",
+                (prompt, response, created_at),
+            )
+            conn.execute(
+                """
+                DELETE FROM memory_entries
+                WHERE id NOT IN (
+                    SELECT id FROM memory_entries ORDER BY id DESC LIMIT ?
+                )
+                """,
+                (self._max_entries,),
+            )
+        self._logger.debug("Memory entry saved at %s", created_at)
 
     def format_for_prompt(self) -> str:
         """Return memory in plain text block ready for LLM prompt injection.
@@ -92,12 +92,34 @@ class MemoryStore:
             User: weather in Berlin
             Assistant: 12C, light rain.
         """
-        if not self._entries:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT prompt, response, created_at
+                FROM memory_entries
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (self._max_entries,),
+            ).fetchall()
+
+        if not rows:
             return ""
+
+        entries = [
+            MemoryEntry(
+                prompt=row["prompt"],
+                response=row["response"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
         lines: list[str] = []
-        for entry in self._entries:
+        for entry in reversed(entries):
             lines.append(f"User: {entry.prompt}")
             lines.append(f"Assistant: {entry.response}")
+
         formatted = "\n".join(lines)
         self._logger.debug("Formatted memory context: %s chars", len(formatted))
         return formatted

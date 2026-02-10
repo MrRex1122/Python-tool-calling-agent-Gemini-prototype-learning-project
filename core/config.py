@@ -90,9 +90,9 @@ class AppConfig:
             weatherapi_key=os.getenv("WEATHERAPI_KEY", ""),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
             log_file=os.getenv("LOG_FILE", "logs/agent.log"),
-            memory_file=os.getenv("MEMORY_FILE", "data/memory.json"),
+            memory_file=os.getenv("MEMORY_FILE", "data/memory.db"),
             memory_max_entries=_read_int_env("MEMORY_MAX_ENTRIES", 10),
-            mailbox_file=os.getenv("MAILBOX_FILE", "data/mailbox.json"),
+            mailbox_file=os.getenv("MAILBOX_FILE", "data/mailbox.db"),
             agent_mode=os.getenv("AGENT_MODE", "multi").lower(),
             max_turns=_read_int_env("MAX_TURNS", 5),
         )

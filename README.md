@@ -6,7 +6,7 @@ A small Gemini-based weather agent with tool-calling (WeatherAPI). This repo is 
 1. Single-agent loop with tool-calling.
 2. Multi-agent planner/executor flow with a persistent mailbox trace.
 3. Router mode that decides between direct and plan-execute paths.
-4. File-backed short-term memory for quick context.
+4. SQLite-backed short-term memory for quick context.
 5. FastAPI service and CLI for simple local usage.
 6. Tool output schemas validated with Pydantic models.
 
@@ -16,13 +16,13 @@ A small Gemini-based weather agent with tool-calling (WeatherAPI). This repo is 
 3. The agent sends the user prompt to Gemini.
 4. If Gemini requests tools, the agent executes them via `ToolRegistry`.
 5. Tool results are sent back to Gemini and the loop continues until a final response.
-6. The last interactions are stored in `data/memory.json` for short-term context.
+6. The last interactions are stored in the SQLite memory database.
 
 **How It Works (Multi Mode)**
 1. `core.runtime.build_runner()` builds a `MultiAgentCoordinator` with a planner and executor.
 2. The planner generates a short numbered plan and has no tools.
 3. The executor follows the plan and calls tools when needed.
-4. All planner/executor/user messages are appended to `data/mailbox.json` with a thread id.
+4. All planner/executor/user messages are appended to the SQLite mailbox database with a thread id.
 5. The planner produces the final response for the user.
 
 **How It Works (Router Mode)**
@@ -44,6 +44,56 @@ Copy-Item .env.example .env
 Open `.env` and set your keys:
 1. `GOOGLE_API_KEY=...`
 2. `WEATHERAPI_KEY=...`
+
+## Run Commands (Cheat Sheet)
+
+**CLI (single run)**
+
+```powershell
+python main.py "What's the weather forecast for Tokyo?"
+```
+
+**API server**
+
+```powershell
+python -m uvicorn api:app --host 127.0.0.1 --port 8000 --reload
+```
+
+**API checks**
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/chat -ContentType "application/json" -Body '{"prompt":"What is the weather in Tokyo?"}'
+```
+
+**Mailbox viewer**
+
+```powershell
+python scripts/mailbox_view.py --list
+python scripts/mailbox_view.py --thread-id <thread_id>
+```
+
+**Smoke test**
+
+```powershell
+python scripts/smoke_test.py
+python scripts/smoke_test.py --skip-chat
+```
+
+**Tests**
+
+```powershell
+python -m pytest -q
+```
+
+**Task runner**
+
+```powershell
+python tasks.py test
+python tasks.py lint
+python tasks.py run-api
+python tasks.py run-cli -- "What's the weather in Tokyo?"
+```
 
 ## Run CLI
 
@@ -97,13 +147,14 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/chat -ContentType "app
 5. `MAX_TURNS` — maximum tool-call turns per run.
 6. `LOG_LEVEL` — logging level, default `INFO`.
 7. `LOG_FILE` — file path for logs, default `logs/agent.log`.
-8. `MEMORY_FILE` — file path for short-term memory, default `data/memory.json`.
+8. `MEMORY_FILE` — SQLite file path for short-term memory, default `data/memory.db`.
 9. `MEMORY_MAX_ENTRIES` — number of memory entries to keep.
-10. `MAILBOX_FILE` — file path for multi-agent mailbox, default `data/mailbox.json`.
+10. `MAILBOX_FILE` — SQLite file path for multi-agent mailbox, default `data/mailbox.db`.
 
 Notes:
-1. `core/config.py` logs warnings if keys are missing or `AGENT_MODE` is invalid.
-2. Missing `GOOGLE_API_KEY` fails only when the agent runs, not at server startup.
+1. If you previously used JSON files for memory or mailbox, delete or rename them.
+2. `core/config.py` logs warnings if keys are missing or `AGENT_MODE` is invalid.
+3. Missing `GOOGLE_API_KEY` fails only when the agent runs, not at server startup.
 
 ## Router Behavior
 
@@ -131,21 +182,13 @@ Notes:
 
 ## Data Stores
 
-**Memory Store (`data/memory.json`)**
+**Memory Store (`data/memory.db`)**
 1. Stores the last N user/assistant exchanges for single-agent context.
-2. Example entry:
+2. Stored in SQLite table `memory_entries`.
 
-```json
-[{"prompt":"weather in Tokyo","response":"It is 8C and cloudy."}]
-```
-
-**Mailbox Store (`data/mailbox.json`)**
+**Mailbox Store (`data/mailbox.db`)**
 1. Stores every planner/executor/user message for multi-agent traceability.
-2. Example entry:
-
-```json
-[{"sender":"planner","recipient":"executor","content":{"plan":"1) ..."},"thread_id":"...","timestamp":"2026-02-09T00:00:00+00:00"}]
-```
+2. Stored in SQLite table `mailbox_messages`.
 
 ## Logging
 
@@ -176,16 +219,27 @@ python tasks.py run-cli -- "What's the weather in Tokyo?"
 
 1. `core/` — config and runtime composition.
 2. `agents/` — single-agent loop, router, and multi-agent coordinator.
-3. `stores/` — file-backed memory and mailbox.
+3. `stores/` — SQLite-backed memory and mailbox.
 4. `tools/` — tool registry and WeatherAPI tools.
 5. `api.py` — FastAPI application entrypoint.
 6. `main.py` — CLI entrypoint.
 7. `tasks.py` — small command runner.
 8. `tests/` — pytest-based unit tests.
+9. `scripts/mailbox_view.py` — CLI viewer for mailbox threads.
 
 ## Troubleshooting
 
 1. `GOOGLE_API_KEY` missing: Gemini calls will fail at runtime with an explicit error.
 2. `WEATHERAPI_KEY` missing: weather tools will fail with a clear error.
 3. Router output malformed: router falls back to `plan` and logs the decision.
-4. Network issues: WeatherAPI requests time out after 10 seconds and return an error message.
+4. Old JSON files: delete or rename `data/memory.json` or `data/mailbox.json` if present.
+5. Network issues: WeatherAPI requests time out after 10 seconds and return an error message.
+
+## Redis Note (Optional)
+
+Redis is not required for this small project. It becomes useful when you want:
+1. Fast short-term memory storage (last N messages).
+2. Tool-call caching with TTL.
+3. Session storage or rate limiting.
+
+For long-term history, SQL (SQLite/Postgres) is still the better default.
